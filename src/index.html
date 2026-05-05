@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件转换工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+        body{background:#f2f5ff;padding:30px 20px;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+        .main-box{width:100%;max-width:880px}
+        .app-title{text-align:center;font-size:27px;font-weight:600;margin-bottom:30px;color:#1f2937}
+        .panel{background:rgba(255,255,255,0.6);backdrop-filter:blur(20px);border-radius:24px;padding:34px;box-shadow:0 10px 30px rgba(0,0,0,0.07);margin-bottom:24px}
+        .flex-row{display:flex;gap:26px}
+        .flex-col{flex:1;display:flex;flex-direction:column;gap:22px}
+        .subtitle{font-size:18px;color:#1f2937;margin-bottom:12px;font-weight:600}
+        .tip-text{font-size:13px;color:#888;margin-bottom:10px}
+        .upload-area{position:relative;margin-bottom:16px}
+        .upload-area input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}
+        .upload-area label{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:28px 16px;border-radius:16px;background:rgba(255,255,255,0.7);border:1px dashed rgba(0,0,0,0.15);font-size:14px;color:#444;transition:all 0.2s}
+        .upload-area input:hover + label{background:rgba(255,255,255,0.9);border-color:#3b82f6}
+        .upload-area label::before{content:"📁";font-size:24px}
+        #fileLabel{font-size:12px;color:#3b82f6;text-align:center;margin-top:6px}
+        .action-btn{width:100%;padding:17px;border-radius:16px;border:none;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.3s;margin-bottom:10px;display:inline-flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);position:relative;overflow:hidden}
+        .action-btn:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,0.15);filter:brightness(1.08)}
+        .action-btn:active{transform:translateY(0)}
+        .btn-color-1{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff}
+        .btn-color-2{background:linear-gradient(135deg,#06b6d4,#22d3ee);color:#fff}
+        .btn-color-3{background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff}
+        .btn-color-4{background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff}
+        .result-area{width:100%;min-height:420px;border-radius:18px;border:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.6);padding:20px;font-size:13px;resize:none;outline:none;color:#222;backdrop-filter:blur(10px)}
+        #loading-panel{display:none;margin-top:10px}
+        #loading-text{text-align:center;font-size:14px;color:#4f46e5;font-weight:600;margin-bottom:6px}
+        .progress-base{width:100%;height:6px;background:rgba(0,0,0,0.06);border-radius:99px;overflow:hidden}
+        .progress-animation{height:100%;width:100%;background:linear-gradient(90deg,#4f46e5,#22d3ee,#4f46e5);background-size:200% 100%;border-radius:99px;animation:anim 1.5s linear infinite}
+        @keyframes anim{0%{background-position:200% 0}100%{background-position:0 0}}
+        
+        /* ========== 作者样式 ========== */
+        .bottom-author {
+          text-align: center;
+          font-size: 13px;
+          color: #888;
+          margin-top: 16px;
+          padding-bottom: 10px;
+          width: 100%;
+        }
+        .bottom-author span {
+          color: #4f46e5;
+          font-weight: 600;
+        }
+        
+        @media(max-width:768px){.flex-row{flex-direction:column}}
+    </style>
+</head>
+<body>
+
+<div class="main-box">
+    <div class="app-title">⚙️ 金手指转换 | 自动汉化工具箱</div>
+    <div class="panel flex-row">
+        <div class="flex-col">
+            <div>
+                <div class="subtitle">选择金手指</div>
+                <div class="tip-text">支持 MC4 / JSON</div>
+                <div class="upload-area">
+                    <input type="file" id="fileSelector" onchange="updateFileLabel()">
+                    <label for="fileSelector">请将文件拖拽至此</label>
+                </div>
+                <div id="fileLabel"></div>
+            </div>
+            <div>
+                <div class="subtitle">功能操作</div>
+                <button class="action-btn btn-color-1" onclick="runDecrypt()">解密MC4金手指</button>
+                <button class="action-btn btn-color-2" onclick="runConvert()">修复JSON金手指</button>
+                <button class="action-btn btn-color-3" onclick="runTranslate()">自动汉化金手指</button>
+                <button class="action-btn btn-color-4" onclick="runSave()">导出SHN格式金手指</button>
+            </div>
+        </div>
+        <div class="flex-col">
+            <div class="subtitle">结果预览</div>
+            <textarea class="result-area" id="resultView" readonly placeholder="等待转换结果..."></textarea>
+            <div id="loading-panel">
+                <div id="loading-text">⏳ 正在翻译中，请稍候...</div>
+                <div class="progress-base">
+                    <div class="progress-animation"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 底部作者 ========== -->
+<div class="bottom-author">
+  By : <span>DaBing Game Studio</span> | 仅供学习使用 | 尊重原作，请勿篡改作者信息
+</div>
+<script>
+const SECRET_KEY = "304c6528f659c766110239a51cl5dd9c";
+const SECRET_IV  = "u@}kzW2u[u(8DWar";
+
+let fileBuffer = null;
+let saveFileName = "";
+
+function updateFileLabel() {
+    const f = fileSelector.files[0];
+    if (f) fileLabel.innerText = "已选择：" + f.name;
+    else fileLabel.innerText = "";
+}
+
+function replaceAbbr(txt) {
+    return txt.replace(/\bInfi /g, "Infinite ").replace(/\bInfi$/g, "Infinite");
+}
+
+async function runTranslate() {
+    const txt = resultView.value;
+    const load = document.getElementById("loading-panel");
+    if (!txt) return alert("请先生成内容！");
+    try {
+        load.style.display = "block";
+        const reg = /Cheat Text="([^"]+)"/g;
+        const list = [...txt.matchAll(reg)];
+        if (list.length === 0) { load.style.display = "none"; return alert("未找到可翻译内容"); }
+        const resArr = await Promise.all(list.map(async i => {
+            const raw = i[1];
+            const fix = replaceAbbr(raw);
+            try {
+                const req = await fetch("https://api.mymemory.translated.net/get?q="+encodeURIComponent(fix)+"&langpair=en|zh-CN");
+                const data = await req.json();
+                return { o: raw, n: data.responseData.translatedText + " | " + raw };
+            } catch(e) {
+                return { o: raw, n: raw };
+            }
+        }));
+        let finalTxt = txt;
+        for (let item of resArr) finalTxt = finalTxt.replaceAll(`Cheat Text="${item.o}"`, `Cheat Text="${item.n}"`);
+        resultView.value = finalTxt;
+        fileBuffer = new TextEncoder().encode(finalTxt);
+        load.style.display = "none";
+        alert("✅ 翻译完成！共 " + resArr.length + " 项");
+    } catch(e) {
+        load.style.display = "none";
+        alert("❌ 翻译失败：" + e.message);
+    }
+}
+
+function getCipher() {
+    const k = CryptoJS.enc.Utf8.parse(SECRET_KEY);
+    const v = CryptoJS.enc.Utf8.parse(SECRET_IV);
+    return { key: k, iv: v, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 };
+}
+
+function cleanJsonData(s) {
+    return s.replace(/[\u3000\f\r\t\v]/g, "").replace(/,\s*([}\]])/g, "$1").trim();
+}
+
+function xmlFilter(s) {
+    if (!s) return "";
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+async function runDecrypt() {
+    try {
+        const f = fileSelector.files[0];
+        if (!f) return alert("请选择文件");
+        const t = await f.text();
+        const c = CryptoJS.enc.Base64.parse(t);
+        const cfg = getCipher();
+        const d = CryptoJS.AES.decrypt({ ciphertext: c }, cfg.key, cfg);
+        const xmlResult = d.toString(CryptoJS.enc.Utf8);
+        resultView.value = xmlResult;
+        fileBuffer = new TextEncoder().encode(xmlResult);
+        saveFileName = f.name.replace(/\.mc4$/i, ".shn");
+        alert("✅ 解密完成");
+    } catch(e) {
+        alert("❌ 解密失败：" + e.message);
+    }
+}
+
+async function runConvert() {
+    try {
+        const f = fileSelector.files[0];
+        if (!f) return alert("请选择文件");
+        const rawText = await f.text();
+        const jsonData = JSON.parse(cleanJsonData(rawText));
+        const game = xmlFilter(jsonData.name || "Game");
+        const cid = xmlFilter(jsonData.id || "");
+        const ver = xmlFilter(jsonData.version || "");
+        const proc = xmlFilter(jsonData.process || "eboot.bin");
+        let out = `<?xml version="1.0" encoding="utf-8"?>
+<Trainer Game="${game}" Moder="User" Cusa="${cid}" Version="${ver}" Process="${proc}">
+`;
+        if (Array.isArray(jsonData.mods)) {
+            for (let m of jsonData.mods) {
+                const cname = xmlFilter(m.name || "Cheat");
+                out += `    <Cheat Text="${cname}">\n`;
+                if (Array.isArray(m.memory)) {
+                    for (let line of m.memory) {
+                        const sec = line.section ?? "0";
+                        const off = xmlFilter(line.offset || "");
+                        const onv = xmlFilter(line.on || "");
+                        const ofv = xmlFilter(line.off || "");
+                        out += `        <Cheatline>
+            <Section>${sec}</Section>
+            <Offset>${off}</Offset>
+            <ValueOn>${onv}</ValueOn>
+            <ValueOff>${ofv}</ValueOff>
+        </Cheatline>
+`;
+                    }
+                }
+                out += `    </Cheat>\n`;
+            }
+        }
+        out += `</Trainer>`;
+        resultView.value = out;
+        fileBuffer = new TextEncoder().encode(out);
+        saveFileName = f.name.replace(/\.json$/i, ".shn");
+        alert("✅ 转换完成");
+    } catch(e) {
+        alert("❌ 转换失败：" + e.message);
+    }
+}
+
+function runSave() {
+    if (!fileBuffer) return alert("暂无内容");
+    const blob = new Blob([fileBuffer], { type: "application/octet-stream" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = saveFileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
